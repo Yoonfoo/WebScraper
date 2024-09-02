@@ -1,6 +1,5 @@
 import sys
-import asyncio
-import datetime
+from datetime import datetime, timedelta
 from PyQt6 import QtWidgets, QtCore
 from PyQt6.QtGui import QPixmap, QGuiApplication
 from PyQt6.QtCore import QThread
@@ -233,64 +232,76 @@ class ISpaceSettingPage(QtWidgets.QWidget):
 
     def ui(self):
         
-        layout_right = QtWidgets.QGridLayout(self)
+        layout_style = '''
+            border: 1px solid #000;
+            border-radius: 10px;
+        '''
 
-        self.time_1 = QtWidgets.QCheckBox(self)
-        self.time_2 = QtWidgets.QCheckBox(self)
-        self.time_3 = QtWidgets.QCheckBox(self)
-        self.time_4 = QtWidgets.QCheckBox(self)
-        self.time_5 = QtWidgets.QCheckBox(self)
-        self.time_6 = QtWidgets.QCheckBox(self)
-        self.time_7 = QtWidgets.QCheckBox(self)
-        self.time_8 = QtWidgets.QCheckBox(self)
-        self.time_9 = QtWidgets.QCheckBox(self)
-        self.time_10 = QtWidgets.QCheckBox(self)
-        self.time_11 = QtWidgets.QCheckBox(self)
-        self.time_12 = QtWidgets.QCheckBox(self)
-        self.time_13 = QtWidgets.QCheckBox(self)
-        self.time_14 = QtWidgets.QCheckBox(self)
-        self.time_15 = QtWidgets.QCheckBox(self)
+        label_style = '''
+            border: None;
+        '''
 
-        self.floor = QtWidgets.QComboBox(self)
-        self.floor.addItems(['1F, 6F, 7F, 8F'])
+        select_style = '''
+            border: 1px solid #000;
+            border-radius: 0px;
+        '''
 
-        self.time_1.setText('00:00 - 00:30') 
-        self.time_2.setText('00:30 - 01:00')
-        self.time_3.setText('01:00 - 01:30')
-        self.time_4.setText('01:30 - 02:00')
-        self.time_5.setText('02:00 - 02:30')
-        self.time_6.setText('02:30 - 03:00')
-        self.time_7.setText('03:00 - 03:30')
-        self.time_8.setText('03:30 - 04:00')
-        self.time_9.setText('04:00 - 04:30')
-        self.time_10.setText('04:30 - 05:00')
-        self.time_11.setText('05:00 - 05:30')
-        self.time_12.setText('05:30 - 06:00')
-        self.time_13.setText('06:00 - 06:30')
-        self.time_14.setText('06:30 - 07:00')
-        self.time_15.setText('07:00 - 07:30')
+        layout_widget = QtWidgets.QWidget(self)
+        layout_widget.setStyleSheet(layout_style)
+        layout_widget.setGeometry(200,250,1500,500)
+        self.layout = QtWidgets.QGridLayout(layout_widget)
+        self.layout.setColumnStretch(0, 2)
+        # layout = QtWidgets.QGridLayout(layout_widget)
+        # layout.
 
+        start_time = datetime.strptime('00:00', '%H:%M')
+        end_time = datetime.strptime('23:59', '%H:%M')
+        time_intervals = self.generate_time_intervals(start_time, end_time, 30)
 
-        layout_right.addWidget(self.time_1, 0, 1)
-        layout_right.addWidget(self.time_2, 0, 2)
-        layout_right.addWidget(self.time_3, 0, 3)
-        layout_right.addWidget(self.time_4, 0, 4)
-        layout_right.addWidget(self.time_5, 0, 5)
-        layout_right.addWidget(self.time_6, 1, 1)
-        layout_right.addWidget(self.time_7, 1, 2)
-        layout_right.addWidget(self.time_8, 1, 3)
-        layout_right.addWidget(self.time_9, 1, 4)
-        layout_right.addWidget(self.time_10, 1, 5)
-        layout_right.addWidget(self.time_11, 2, 1)
-        layout_right.addWidget(self.time_12, 2, 2)
-        layout_right.addWidget(self.time_13, 2, 3)
-        layout_right.addWidget(self.time_14, 2, 4)
-        layout_right.addWidget(self.time_15, 2, 5)
-        layout_right.addWidget(self.floor, 0, 0, 3, 1)
+        self.time_list = []
         
+        self.floor = QtWidgets.QComboBox(self)
+        self.floor.setStyleSheet(select_style)
+        self.floor.setMaximumWidth(200)
+        self.floor.addItems(['1F', '6F', '7F', '8F'])
+        self.layout.addWidget(self.floor, 1, 0)
+        
+        self.suspend_all = QtWidgets.QCheckBox(self)
+        self.suspend_all.setText('Suspend all rooms')
+        self.suspend_all.setStyleSheet(label_style)
+        self.layout.addWidget(self.suspend_all, 2, 0)
 
-        self.setLayout(layout_right)
+        column_index = 1
+        row_index = 0
+        
+        for i in range(48):
+            
+            time = QtWidgets.QCheckBox(self)
+            time.setText(time_intervals[i])
+            time.setStyleSheet(label_style)
+            self.time_list.append(time)
+            self.layout.addWidget(time, row_index, column_index)
+            column_index += 1
 
+            if column_index == 9: 
+                column_index = 1
+                row_index += 1
+
+      
+
+    def generate_time_intervals(self, start_time, end_time, interval_minutes):
+        intervals = []
+        current_time = start_time
+        while current_time < end_time:
+            end_interval = current_time + timedelta(minutes=interval_minutes - 1)
+            intervals.append(f"{current_time.strftime('%H:%M')}~{end_interval.strftime('%H:%M')}")
+            current_time += timedelta(minutes=interval_minutes)
+        return intervals
+
+    def rooms_selections(self):
+        current_floors = self.floor.currentIndex()
+        if current_floors == '1F':
+            pass
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
