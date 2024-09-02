@@ -100,7 +100,7 @@ class ISpaceLoginPage(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("ISpace Settings")
-        self.center_window()
+        self.resize(500,300)
     
         self.controller = IspaceController()
         self.controllerThread = QThread()
@@ -108,16 +108,14 @@ class ISpaceLoginPage(QtWidgets.QWidget):
         self.controllerThread.start()
         self.controller.pixmap_ready.connect(self.display_pixmap)
         self.controller.clear_widget.connect(self.clear_all_widgets)
-
         self.ui()
 
     def ui(self):
 
         style_box = '''
             background:#fff;
-            border:1px solid #000;
             padding: 5px;
-            border-radius: 10px;
+            border: None;
         '''
 
         info_style = '''
@@ -126,6 +124,8 @@ class ISpaceLoginPage(QtWidgets.QWidget):
         '''
 
         input_bar_style = '''
+            border: 1px solid black;
+            border-radius: 10px;
             padding-right: 50px;
         '''
 
@@ -159,6 +159,11 @@ class ISpaceLoginPage(QtWidgets.QWidget):
         self.pwInput.setStyleSheet(input_bar_style)
         self.captchaInput.setStyleSheet(input_bar_style)
         self.loginButton.setStyleSheet('''
+            QPushButton {
+                border: 1px solid black;
+                border-radius: 10px;
+            }
+
             QPushButton:hover {
                 background: black;
                 color: white;
@@ -183,51 +188,113 @@ class ISpaceLoginPage(QtWidgets.QWidget):
 
     def clear_all_widgets(self):
         
-        while self.grid_layout.count():
-            item = self.grid_layout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.deleteLater()
+        # while self.grid_layout.count():
+        #     item = self.grid_layout.takeAt(0)
+        #     widget = item.widget()
+        #     if widget:
+        #         widget.deleteLater()
         
-        self.grid_layout.deleteLater()
-        self.deleteLater()
+        # self.grid_layout.deleteLater()
+        # self.deleteLater()
+        self.setting_window = ISpaceSettingPage()
+        self.setting_window.show()
+
+        self.close()
 
     # @QtCore.pyqtSlot(QPixmap)
     def display_pixmap(self,pixmap):
         self.image_label.setPixmap(pixmap)
-        self.resize(pixmap.width(), pixmap.height())
+        self.image_label.setFixedHeight(50)
+        self.image_label.setFixedWidth(160)
 
     def center_window(self):
         # Get the screen size
-        screen = QGuiApplication.primaryScreen()
-        screen_geometry = screen.availableGeometry()
-        screen_width = screen_geometry.width()
-        screen_height = screen_geometry.height()
+        screen = QtWidgets.QApplication.screens()
+        screen_size = screen[0].size()
+        print(screen_size)
+        screen_w = screen_size.width()
+        screen_h = screen_size.height()
 
-        # Get the window size
-        window_width = self.width()
-        window_height = self.height()
+        w = self.width()
+        h = self.height()
 
-        # Calculate the center position
-        x = (screen_width - window_width) // 2
-        y = (screen_height - window_height) // 2
+        center_x = int((screen_w - w)/2)
+        center_y = int((screen_h - h)/2)
+        self.move(center_x, center_y)
 
-        # Set the window position
-        self.move(x, y)
 
 class ISpaceSettingPage(QtWidgets.QWidget):
 
     def __init__(self):
         super().__init__()
         self.setWindowTitle("ISpace Discussion Room")
+        self.ui()
         self.showMaximized()
 
     def ui(self):
-        pass
+        
+        layout_right = QtWidgets.QGridLayout(self)
+
+        self.time_1 = QtWidgets.QCheckBox(self)
+        self.time_2 = QtWidgets.QCheckBox(self)
+        self.time_3 = QtWidgets.QCheckBox(self)
+        self.time_4 = QtWidgets.QCheckBox(self)
+        self.time_5 = QtWidgets.QCheckBox(self)
+        self.time_6 = QtWidgets.QCheckBox(self)
+        self.time_7 = QtWidgets.QCheckBox(self)
+        self.time_8 = QtWidgets.QCheckBox(self)
+        self.time_9 = QtWidgets.QCheckBox(self)
+        self.time_10 = QtWidgets.QCheckBox(self)
+        self.time_11 = QtWidgets.QCheckBox(self)
+        self.time_12 = QtWidgets.QCheckBox(self)
+        self.time_13 = QtWidgets.QCheckBox(self)
+        self.time_14 = QtWidgets.QCheckBox(self)
+        self.time_15 = QtWidgets.QCheckBox(self)
+
+        self.floor = QtWidgets.QComboBox(self)
+        self.floor.addItems(['1F, 6F, 7F, 8F'])
+
+        self.time_1.setText('00:00 - 00:30') 
+        self.time_2.setText('00:30 - 01:00')
+        self.time_3.setText('01:00 - 01:30')
+        self.time_4.setText('01:30 - 02:00')
+        self.time_5.setText('02:00 - 02:30')
+        self.time_6.setText('02:30 - 03:00')
+        self.time_7.setText('03:00 - 03:30')
+        self.time_8.setText('03:30 - 04:00')
+        self.time_9.setText('04:00 - 04:30')
+        self.time_10.setText('04:30 - 05:00')
+        self.time_11.setText('05:00 - 05:30')
+        self.time_12.setText('05:30 - 06:00')
+        self.time_13.setText('06:00 - 06:30')
+        self.time_14.setText('06:30 - 07:00')
+        self.time_15.setText('07:00 - 07:30')
+
+
+        layout_right.addWidget(self.time_1, 0, 1)
+        layout_right.addWidget(self.time_2, 0, 2)
+        layout_right.addWidget(self.time_3, 0, 3)
+        layout_right.addWidget(self.time_4, 0, 4)
+        layout_right.addWidget(self.time_5, 0, 5)
+        layout_right.addWidget(self.time_6, 1, 1)
+        layout_right.addWidget(self.time_7, 1, 2)
+        layout_right.addWidget(self.time_8, 1, 3)
+        layout_right.addWidget(self.time_9, 1, 4)
+        layout_right.addWidget(self.time_10, 1, 5)
+        layout_right.addWidget(self.time_11, 2, 1)
+        layout_right.addWidget(self.time_12, 2, 2)
+        layout_right.addWidget(self.time_13, 2, 3)
+        layout_right.addWidget(self.time_14, 2, 4)
+        layout_right.addWidget(self.time_15, 2, 5)
+        layout_right.addWidget(self.floor, 0, 0, 3, 1)
+        
+
+        self.setLayout(layout_right)
+
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
-    controller = ISpaceLoginPage()
-    controller.show()
+    controller = ISpaceSettingPage()
+    # controller.show()
     
     sys.exit(app.exec())
