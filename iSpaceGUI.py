@@ -1,44 +1,13 @@
+import asyncio
 import sys
 from datetime import datetime, timedelta
 from PyQt6 import QtWidgets, QtCore
-from PyQt6.QtGui import QPixmap, QGuiApplication
+from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import QThread
-from playwright.async_api import async_playwright
 from playwright.sync_api import sync_playwright
 
 
-            #     start_date = input("Start date (YYYY/MM/DD): ")
-            #     end_date = input("End date (YYYY/MM/DD): ")
-
-                    #     date_1 = datetime.datetime.strptime(start_date,'%Y/%m/%d')
-                    #     date_2 = datetime.datetime.strptime(end_date,'%Y/%m/%d')
-
-                    #     interval = abs(date_2 - date_1).days
-
-                    #     for i in range(interval):
-                    #         await page.frame_locator('#contentframe').frame_locator('#iframePage').get_by_title('新增暫停使用空間').click()
-                    #         await page.frame_locator('#contentframe').locator('#floor').select_option('圖書館1F')
-                    #         await page.wait_for_timeout(2000)
-                    #         await page.frame_locator('#contentframe').locator('label.chkboxAll').set_checked(True)
-                    #         await page.wait_for_timeout(2000)
-                    #         await page.frame_locator('#contentframe').locator('input.YYYYMMDD').click()
-                    #         await page.wait_for_timeout(2000)
-                    #         await page.frame_locator('#contentframe').get_by_title(date_1.strftime('%Y/%m/%d')).click()
-                    #         await page.wait_for_timeout(2000)
-                    #         await page.frame_locator('#contentframe').get_by_text('23:30~23:59').click()
-                    #         await page.wait_for_timeout(2000)
-                    #         await page.frame_locator('#contentframe').locator('div.pagefun').nth(0).get_by_title('新增暫停使用空間').click()
-                    #         await page.wait_for_timeout(2000)
-
-                    #         date_1 = date_1 + datetime.timedelta(days=1)
-
-
-
-                    #     await page.wait_for_timeout(50000)
-
-                # browser.close()
-
-class IspaceController(QtCore.QObject):
+class IspaceController(QThread):
     
     pixmap_ready = QtCore.pyqtSignal(QPixmap)
     clear_widget = QtCore.pyqtSignal()
@@ -48,20 +17,20 @@ class IspaceController(QtCore.QObject):
         self.page = None
 
     def capture_login_page(self):
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
-            page.goto('https://ispace-lis.nsysu.edu.tw/manager/loginmgr.aspx')
-            
-            clip_area = {
-                'x': 760,
-                'y': 325,
-                'width': 150,
-                'height': 26
-            }
-            screenshot = page.screenshot(clip=clip_area)
-            self.page = page
-            yield screenshot
+        p = sync_playwright().start()
+        browser = p.chromium.launch(headless=False)
+        page = browser.new_page()
+        page.goto('https://ispace-lis.nsysu.edu.tw/manager/loginmgr.aspx')
+        
+        clip_area = {
+            'x': 760,
+            'y': 325,
+            'width': 150,
+            'height': 26
+        }
+        screenshot = page.screenshot(clip=clip_area)
+        self.page = page
+        return screenshot
 
     def on_login_button_clicked(self, userID, pwd, vc):
         # Fetch text from input fields and call the do_setting method
@@ -74,6 +43,7 @@ class IspaceController(QtCore.QObject):
         pw.fill(pwd)
         captcha.fill(vc)
         login_button.click()
+        self.page.wait_for_load_state('load')
 
         if self.page.url == 'https://ispace-lis.nsysu.edu.tw/manager/loginmgr.aspx':
             return
@@ -87,8 +57,15 @@ class IspaceController(QtCore.QObject):
         screenshot_generator = self.capture_login_page()
 
         pixmap = QPixmap()
-        pixmap.loadFromData(QtCore.QByteArray(next(screenshot_generator)))
+        pixmap.loadFromData(QtCore.QByteArray(screenshot_generator))
         self.pixmap_ready.emit(pixmap)
+
+
+class CustomCalendar(QtWidgets.QCalendarWidget):
+
+    def __init__(self):
+        super().__init__()
+
 
 
 
@@ -196,7 +173,7 @@ class ISpaceLoginPage(QtWidgets.QWidget):
         
         # self.grid_layout.deleteLater()
         # self.deleteLater()
-        self.setting_window = ISpaceSettingPage(self.controller)
+        self.setting_window = ISpaceSettingPage(self.controller.page)
         self.setting_window.show()
 
         self.close()
@@ -222,12 +199,16 @@ class ISpaceLoginPage(QtWidgets.QWidget):
         center_y = int((screen_h - h)/2)
         self.move(center_x, center_y)
 
+    def keyPressEvent(self, event):
+        keycode = event.key()
+        if keycode == QtCore.Qt.Key.Key_Return or keycode == QtCore.Qt.Key.Key_Enter:
+            self.controller.on_login_button_clicked(self.idInput.text(), self.pwInput.text(), self.captchaInput.text())
 
 class ISpaceSettingPage(QtWidgets.QWidget):
 
-    def __init__(self, controller):
+    def __init__(self, page):
         super().__init__()
-        self.controller = controller
+        self.page = page
         self.checkedDate_list = []
         self.setWindowTitle("ISpace Discussion Room")
         self.ui()
@@ -324,7 +305,7 @@ class ISpaceSettingPage(QtWidgets.QWidget):
         self.suspend_date_container_a = QtWidgets.QHBoxLayout()
         self.suspend_date_start = QtWidgets.QDateEdit(calendarPopup=True)
         self.suspend_date_start.setFixedSize(120,30)
-        self.suspend_date_start.setDisplayFormat('yyyy/MM/dd')
+        self.suspend_date_start.setDisplayFormat('yyyy/M/d')
         self.suspend_date_start.setDate(QtCore.QDate.currentDate())
         self.suspend_date_start_label = QtWidgets.QLabel(self)
         self.suspend_date_start_label.setFixedSize(220,30)
@@ -333,10 +314,29 @@ class ISpaceSettingPage(QtWidgets.QWidget):
         self.suspend_date_container_a.addWidget(self.suspend_date_start_label)
         self.suspend_date_container_a.addWidget(self.suspend_date_start)
 
+        self.suspend_date_start_calendar = QtWidgets.QCalendarWidget()
+        self.suspend_date_start_calendar.setGridVisible(True)
+        self.suspend_date_start_calendar.setNavigationBarVisible(True)
+        self.suspend_date_start_calendar.setMinimumDate(QtCore.QDate().currentDate())
+        self.suspend_date_start_calendar.setVerticalHeaderFormat(QtWidgets.QCalendarWidget.VerticalHeaderFormat.NoVerticalHeader)
+        self.suspend_date_start_calendar.setStyleSheet("""
+            QCalendarWidget {
+                border: None;
+                                                       }
+            QCalendar QToolButton:hover {
+                color: white;
+                                                       }
+            QCalendarWidget QWidget#qt_calendar_navigationbar {
+                background-color: black;
+                                                       }
+        """)
+        self.suspend_date_start.setMinimumDate(QtCore.QDate().currentDate())
+        self.suspend_date_start.setCalendarWidget(self.suspend_date_start_calendar)
+
         self.suspend_date_container_b = QtWidgets.QHBoxLayout()
-        self.suspend_date_end = QtWidgets.QDateEdit(self)
+        self.suspend_date_end = QtWidgets.QDateEdit(calendarPopup=True)
         self.suspend_date_end.setFixedSize(120,30)
-        self.suspend_date_end.setDisplayFormat('yyyy/MM/dd')
+        self.suspend_date_end.setDisplayFormat('yyyy/M/d')
         self.suspend_date_end.setDate(QtCore.QDate.currentDate())
         self.suspend_date_end_label = QtWidgets.QLabel(self)
         self.suspend_date_end_label.setStyleSheet(suspend_label_style)
@@ -363,8 +363,21 @@ class ISpaceSettingPage(QtWidgets.QWidget):
         self.add_suspend_button = QtWidgets.QPushButton(self)
         self.add_suspend_button.setText('新增暫停使用空間')
         self.add_suspend_button.setFixedSize(150,30)
-        # self.add_suspend_button.clicked.connect(self.suspend_submit)
+        self.add_suspend_button.setStyleSheet('''
+            QPushButton {
+                border: 1px solid black;
+                border-radius: 10px;
+            }
+
+            QPushButton:hover {
+                background: black;
+                color: white;
+            }
+        ''')
+        self.add_suspend_button.clicked.connect(self.suspend_submit)
         self.layout.addWidget(self.add_suspend_button, 8, 7)
+
+        self.suspend_submit()
 
         # for i in range(48):
             # self.time_list[i].clicked.connect(lambda time=time: self.checked_date(time))
@@ -422,26 +435,67 @@ class ISpaceSettingPage(QtWidgets.QWidget):
             if time.text() in self.checkedDate_list:
                 self.checkedDate_list.remove(time.text())
 
-        print(self.checkedDate_list)
 
     def suspend_all_rooms(self):
 
         self.room_1.setChecked(self.suspend_all.isChecked())
         self.room_2.setChecked(self.suspend_all.isChecked())
 
-    # def suspend_submit(self):
-        # print(self.controller.page.url)
-        # try:
-        #     date_1 = datetime.datetime.strptime(self.suspend_date_start.text(),'%Y/%m/%d')
-        #     date_2 = datetime.datetime.strptime(self.suspend_date_end.text(),'%Y/%m/%d')
+    def suspend_submit(self):
+        start_date = self.suspend_date_start.date()
+        end_date = self.suspend_date_end.date()
 
-        # except:
-        #     if len(self.checkedDate_list) == 0:
-        #         if(date_1 == '' and date_2 != '')
+        if ((start_date == end_date) or (start_date > end_date)) and self.floor.currentText() != '':
+            self.click_automation(start_date)
+            
+        elif end_date > start_date:
+            while(start_date <= end_date):
+                self.click_automation(start_date)
+                start_date = start_date.addDays(1)
 
-        # interval = abs(date_2 - date_1).days
+    def click_automation(self, start_date):
+        
+        self.page.frame_locator('#contentframe').frame_locator('#iframePage').get_by_title('新增暫停使用空間').click()
+        try:
+            self.page.frame_locator('#contentframe').locator('#floor').select_option(self.floor.currentText())
+            self.page.wait_for_timeout(2000)
+                
+            if self.suspend_all.isChecked():
+                self.page.frame_locator('#contentframe').locator('label.chkboxAll').set_checked(True)
+            elif self.room_1.isChecked():
+                self.page.frame_locator('#contentframe').locator('label.chksel').nth(0).set_checked(True)
+            elif self.room_2.isChecked():
+                self.page.frame_locator('#contentframe').locator('label.chksel').nth(1).set_checked(True)
+            
+            self.page.wait_for_timeout(2000)
+            self.page.frame_locator('#contentframe').locator('input.YYYYMMDD').click()
+            self.page.wait_for_timeout(2000)
 
+            date = datetime.strptime(start_date.toString('yyyy/MM'), "%Y/%m")
+            calender_date = datetime.strptime(
+                self.page.frame_locator('#contentframe').locator('div.nav').locator('a.yyyymmdd').inner_html(), "%Y/%m")
+            diff = (date.year - calender_date.year) * 12 + (date.month - calender_date.month)
+                
+            if diff != 0:
+                for i in range(diff):
+                    self.page.frame_locator('#contentframe').locator('div.nav').locator('a.monthR').click()
+            
+            self.page.wait_for_timeout(2000)
+            self.page.frame_locator('#contentframe').locator('table.calendar').get_by_title(start_date.toString('yyyy/MM/d')).click()
 
+            if len(self.checkedDate_list) == 0:
+                self.page.wait_for_timeout(2000)
+                self.page.frame_locator('#contentframe').locator('div.pagefun').nth(0).get_by_title('新增暫停使用空間').click()
+                self.page.wait_for_timeout(2000)
+            else:
+                for time in self.checkedDate_list:
+                    self.page.frame_locator('#contentframe').get_by_text(time).click()
+                self.page.wait_for_timeout(2000)
+                self.page.frame_locator('#contentframe').locator('div.pagefun').nth(0).get_by_title('新增暫停使用空間').click()
+                self.page.wait_for_timeout(2000)
+
+        except:
+            pass
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
